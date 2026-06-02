@@ -91,6 +91,17 @@ def inject_css(mt):
     box-sizing: border-box;
   }}
 
+  /* Keep Streamlit's Material icon glyphs intact — the global Inter override above
+     would otherwise turn icon ligatures into literal text (e.g. "upload"). */
+  span[data-testid="stIconMaterial"],
+  [data-testid="stIconMaterial"],
+  .material-icons, .material-icons-outlined, .material-icons-rounded,
+  .material-symbols-rounded, .material-symbols-outlined, .material-symbols-sharp,
+  [class*="material-symbols"], [class*="material-icons"] {{
+    font-family: 'Material Symbols Rounded','Material Symbols Outlined',
+                 'Material Icons Outlined','Material Icons' !important;
+  }}
+
   .stApp {{
     background: {PAGE_BG} !important;
   }}
