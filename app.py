@@ -728,12 +728,17 @@ def inject_css(mt):
   .sec-lbl::before {{ display: none !important; }}
   .sec-lbl-sub {{ font-size: 12px !important; color: {SUBTLE} !important; font-weight: 400 !important; }}
 
-  /* Chart cards — 12px radius, soft shadow, 16px gap */
+  /* Chart cards — flat, no rounded corners, no scrollbars */
   div[data-testid="stPlotlyChart"] {{
     border: 1px solid {LINE} !important;
-    border-radius: 12px !important;
+    border-radius: 0 !important;
     box-shadow: {CARD_SHADOW} !important;
     margin-bottom: 16px !important;
+    overflow: hidden !important;
+  }}
+  div[data-testid="stPlotlyChart"] > div,
+  div[data-testid="stPlotlyChart"] iframe {{
+    overflow: hidden !important;
   }}
   div[data-testid="stPlotlyChart"]:hover {{ box-shadow: 0 4px 12px rgba(0,0,0,0.10) !important; }}
 
@@ -1053,7 +1058,23 @@ def stacked_bar(df_melt, x_col, y_col, color_col, mt, title="", height=300):
     fig.update_traces(texttemplate="%{text:.2s}", textposition="inside",
                       textfont=dict(size=9, color=WHITE), marker_line_width=0,
                       hovertemplate="<b>%{x}</b><br>%{fullData.name}: $%{y:,.0f}<extra></extra>")
-    return tf(fig, mt, title, height)
+    fig = tf(fig, mt, title, height)
+    fig.update_layout(
+        margin=dict(t=48, b=64, l=12, r=12),
+        xaxis=dict(title=None),
+        yaxis=dict(title=None),
+        legend=dict(
+            orientation="h",
+            yanchor="top",
+            y=-0.18,
+            xanchor="center",
+            x=0.5,
+            bgcolor="rgba(0,0,0,0)",
+            borderwidth=0,
+            font=dict(size=10, color=TEXT_DK),
+        ),
+    )
+    return fig
 
 def peril_mini_bar(y_vals, x_vals, color, title, height=230):
     # Rank ascending so the highest-rate account sits at the top
@@ -1144,12 +1165,12 @@ def render_compare(df_rms, cols_rms, avail_rms, df_air, cols_air, avail_air):
         if sc_rms:
             agg = df_rms.groupby(sc_rms)["_TotalAAL"].sum().reset_index().nlargest(top_n,"_TotalAAL")
             st.plotly_chart(h_bar(agg, sc_rms, "_TotalAAL", mr, "RMS — AAL by Province", top_n, 340),
-                            use_container_width=True, config={"displayModeBar":False})
+                            use_container_width=True, config={"displayModeBar":False,"scrollZoom":False})
     with c2:
         if sc_air:
             agg = df_air.groupby(sc_air)["_TotalAAL"].sum().reset_index().nlargest(top_n,"_TotalAAL")
             st.plotly_chart(h_bar(agg, sc_air, "_TotalAAL", ma, "AIR — AAL by Province", top_n, 340),
-                            use_container_width=True, config={"displayModeBar":False})
+                            use_container_width=True, config={"displayModeBar":False,"scrollZoom":False})
 
     common = list(set(avail_rms.keys()) & set(avail_air.keys()))
     if common:
@@ -1174,7 +1195,7 @@ def render_compare(df_rms, cols_rms, avail_rms, df_air, cols_air, avail_air):
                           yaxis=dict(showticklabels=False, gridcolor=GRID, gridwidth=1,
                                      range=[0, cmp_max * 1.18 if cmp_max else 1]),
                           hoverlabel=dict(bgcolor="#ffffff", font_size=12, bordercolor=LINE))
-        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar":False})
+        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar":False,"scrollZoom":False})
 
 # ── Main dashboard ────────────────────────────────────────────────────────────
 def render_dashboard(df, cols, avail, mt, top_n, filter_by, filter_peril, quarter_filter):
@@ -1254,13 +1275,13 @@ def render_dashboard(df, cols, avail, mt, top_n, filter_by, filter_peril, quarte
             agg = df.groupby(state_col)[sort_col].sum().reset_index()
             agg.columns = [state_col, sort_lbl]
             st.plotly_chart(h_bar(agg, state_col, sort_lbl, mt, f"{sort_lbl} by Province", top_n, CH),
-                            use_container_width=True, config={"displayModeBar":False})
+                            use_container_width=True, config={"displayModeBar":False,"scrollZoom":False})
     with r1b:
         if city_col:
             agg = df.groupby(city_col)[sort_col].sum().reset_index()
             agg.columns = [city_col, sort_lbl]
             st.plotly_chart(h_bar(agg, city_col, sort_lbl, mt, f"{sort_lbl} by City", top_n, CH),
-                            use_container_width=True, config={"displayModeBar":False})
+                            use_container_width=True, config={"displayModeBar":False,"scrollZoom":False})
     with r1c:
         if state_col:
             agg = df.groupby(state_col)["_TotalAAL"].sum().reset_index()
@@ -1269,7 +1290,7 @@ def render_dashboard(df, cols, avail, mt, top_n, filter_by, filter_peril, quarte
             if rest > 0:
                 top6 = pd.concat([top6, pd.DataFrame({state_col:["Other"],"_TotalAAL":[rest]})])
             st.plotly_chart(donut(top6[state_col].astype(str), top6["_TotalAAL"], mt, "AAL Share by Province", CH),
-                            use_container_width=True, config={"displayModeBar":False})
+                            use_container_width=True, config={"displayModeBar":False,"scrollZoom":False})
 
     # Row 2 — Trends & peril breakdown
     tile_label("Trends & Peril Breakdown")
@@ -1278,12 +1299,12 @@ def render_dashboard(df, cols, avail, mt, top_n, filter_by, filter_peril, quarte
         if "_quarter" in df.columns and df["_quarter"].nunique() > 1:
             qdf = df.groupby("_quarter")["_TotalAAL"].sum().reset_index().sort_values("_quarter")
             st.plotly_chart(line_fig(qdf, "_quarter", "_TotalAAL", mt, "AAL Trend by Quarter", CH),
-                            use_container_width=True, config={"displayModeBar":False})
+                            use_container_width=True, config={"displayModeBar":False,"scrollZoom":False})
         elif city_col:
             agg = df.groupby(city_col)["_TIV"].sum().reset_index().nlargest(top_n,"_TIV")
             agg.columns = [city_col,"Total TIV"]
             st.plotly_chart(v_bar(agg, city_col, "Total TIV", mt, "TIV by City", top_n, CH),
-                            use_container_width=True, config={"displayModeBar":False})
+                            use_container_width=True, config={"displayModeBar":False,"scrollZoom":False})
     with r2b:
         if city_col and len(avail) > 1:
             cp = df.groupby(city_col)[[f"_p_{k}" for k in avail]].sum()
@@ -1292,7 +1313,7 @@ def render_dashboard(df, cols, avail, mt, top_n, filter_by, filter_peril, quarte
             cp = cp.nlargest(top_n,"_t").drop(columns="_t").reset_index()
             melted = cp.melt(id_vars=city_col, var_name="Peril", value_name="AAL")
             st.plotly_chart(stacked_bar(melted, city_col, "AAL", "Peril", mt, "All Perils by City (Stacked)", CH),
-                            use_container_width=True, config={"displayModeBar":False})
+                            use_container_width=True, config={"displayModeBar":False,"scrollZoom":False})
 
     # Row 3 — Account analysis
     if acct_col:
@@ -1301,7 +1322,7 @@ def render_dashboard(df, cols, avail, mt, top_n, filter_by, filter_peril, quarte
         r3a, r3b, r3c = st.columns(3)
         with r3a:
             st.plotly_chart(h_bar(top_acct, acct_col, "_TotalAAL", mt, "Top Accounts — Total AAL", top_n, CH),
-                            use_container_width=True, config={"displayModeBar":False})
+                            use_container_width=True, config={"displayModeBar":False,"scrollZoom":False})
         with r3b:
             lr_df = acct_agg.nlargest(top_n,"LossRatio").sort_values("LossRatio", ascending=True)
             lr_labels = clean_labels(lr_df[acct_col]).tolist()
@@ -1333,7 +1354,7 @@ def render_dashboard(df, cols, avail, mt, top_n, filter_by, filter_peril, quarte
                               annotation_font=dict(size=9, color="#E76F51"))
             fig = tf(fig, mt, "Loss Ratio by Account", CH)
             fig.update_layout(margin=dict(l=14, r=24, t=48, b=44))
-            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar":False})
+            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar":False,"scrollZoom":False})
         with r3c:
             sdf = acct_agg.nlargest(min(30,len(acct_agg)),"_TotalAAL").copy()
             sdf["_sz"] = sdf["_TIV"].clip(lower=1)
@@ -1349,7 +1370,7 @@ def render_dashboard(df, cols, avail, mt, top_n, filter_by, filter_peril, quarte
             fig.update_layout(margin=dict(l=14, r=72, t=48, b=44),
                               coloraxis_colorbar=dict(thickness=10, len=0.8, x=1.02,
                                                       tickfont=dict(size=9), title_font=dict(size=10)))
-            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar":False})
+            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar":False,"scrollZoom":False})
 
         # Row 4 — Peril drivers
         if avail:
@@ -1365,7 +1386,7 @@ def render_dashboard(df, cols, avail, mt, top_n, filter_by, filter_peril, quarte
                         PERIL_COLORS[idx % len(PERIL_COLORS)],
                         PERIL_NAMES.get(pk,pk), height=CH-40,
                     )
-                    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar":False})
+                    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar":False,"scrollZoom":False})
 
 # ── App entry ─────────────────────────────────────────────────────────────────
 def main():
